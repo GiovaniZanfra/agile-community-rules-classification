@@ -76,6 +76,20 @@ predict-baseline: requirements
 .PHONY: baseline
 baseline: train-baseline predict-baseline
 
+## Train text-only baseline model
+.PHONY: train-text-only
+train-text-only: requirements
+	$(PYTHON_INTERPRETER) agile_community_rules_classification/train_text_only.py
+
+## Generate text-only baseline predictions
+.PHONY: predict-text-only
+predict-text-only: requirements
+	$(PYTHON_INTERPRETER) agile_community_rules_classification/predict_text_only.py
+
+## Run full text-only baseline pipeline
+.PHONY: text-only
+text-only: train-text-only predict-text-only
+
 
 #################################################################################
 # Self Documenting Commands                                                     #

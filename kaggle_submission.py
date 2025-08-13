@@ -1,18 +1,21 @@
 #!/usr/bin/env python3
 """
-Reddit Comment Rule Violation Classifier - Kaggle Submission
-Complete baseline pipeline in a single script for easy copy-paste into Kaggle notebook.
+Reddit Comment Rule Violation Classifier - Text-Only Baseline (Kaggle Submission)
+Complete text-only baseline pipeline in a single script for easy copy-paste into Kaggle notebook.
 
-This script implements a rule-based similarity classifier using TF-IDF and cosine similarity
-to compare Reddit comments with positive/negative examples for each rule.
+This script implements a text-only classifier using TF-IDF + Logistic Regression
+without relying on the provided examples, which should generalize better.
 
-Expected AUC: ~0.88
+Expected AUC: ~0.82 (more realistic)
 """
 
 import pandas as pd
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import Pipeline
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import roc_auc_score
 import warnings
@@ -31,76 +34,60 @@ print(f"Test data: {test_df.shape}")
 print(f"Rules: {train_df['rule'].unique()}")
 
 # =============================================================================
-# 2. BASELINE MODEL IMPLEMENTATION
+# 2. TEXT-ONLY BASELINE MODEL IMPLEMENTATION
 # =============================================================================
 
-class RuleBasedSimilarityClassifier:
-    """Baseline classifier using similarity to positive/negative examples."""
+class TextOnlyBaselineClassifier:
+    """Text-only baseline classifier using TF-IDF + Logistic Regression."""
     
-    def __init__(self, max_features=5000):
-        self.vectorizer = TfidfVectorizer(max_features=max_features, stop_words='english')
-        self.examples_by_rule = {}
-        self.rule_vectors = {}
+    def __init__(self, max_features=10000):
+        self.text_vectorizer = TfidfVectorizer(
+            max_features=max_features, 
+            stop_words='english',
+            ngram_range=(1, 2),  # Use unigrams and bigrams
+            min_df=2,  # Minimum document frequency
+            max_df=0.95  # Maximum document frequency
+        )
+        self.rule_encoder = LabelEncoder()
+        self.model = LogisticRegression(random_state=42, max_iter=1000)
+        self.pipeline = None
         
     def fit(self, train_df):
         """Fit the classifier on training data."""
-        # Extract examples by rule
-        for rule in train_df['rule'].unique():
-            rule_data = train_df[train_df['rule'] == rule]
-            self.examples_by_rule[rule] = {
-                'positive': rule_data[['positive_example_1', 'positive_example_2']].values.flatten(),
-                'negative': rule_data[['negative_example_1', 'negative_example_2']].values.flatten()
-            }
+        # Prepare features
+        train_df_copy = train_df.copy()
+        train_df_copy['rule_encoded'] = self.rule_encoder.fit_transform(train_df_copy['rule'])
         
-        # Fit TF-IDF vectorizer on all examples
-        all_examples = []
-        for rule, examples in self.examples_by_rule.items():
-            all_examples.extend(examples['positive'])
-            all_examples.extend(examples['negative'])
+        # Create pipeline
+        self.pipeline = Pipeline([
+            ('features', ColumnTransformer([
+                ('text', self.text_vectorizer, 'body'),
+                ('rule', 'passthrough', ['rule_encoded'])
+            ])),
+            ('classifier', self.model)
+        ])
         
-        self.vectorizer.fit(all_examples)
-        
-        # Vectorize examples for each rule
-        for rule, examples in self.examples_by_rule.items():
-            pos_vectors = self.vectorizer.transform(examples['positive'])
-            neg_vectors = self.vectorizer.transform(examples['negative'])
-            
-            self.rule_vectors[rule] = {
-                'positive': pos_vectors,
-                'negative': neg_vectors
-            }
+        # Fit pipeline
+        self.pipeline.fit(train_df_copy[['body', 'rule_encoded']], train_df_copy['rule_violation'])
+        return self
     
     def predict_proba(self, texts, rules):
         """Predict violation probabilities."""
-        # Vectorize input texts
-        text_vectors = self.vectorizer.transform(texts)
+        # Prepare test data
+        test_df = pd.DataFrame({'body': texts, 'rule': rules})
         
-        probabilities = []
-        for i, (text, rule) in enumerate(zip(texts, rules)):
-            if rule not in self.rule_vectors:
-                # Unknown rule - default to 0.5
-                probabilities.append(0.5)
-                continue
-                
-            text_vec = text_vectors[i:i+1]
-            
-            # Calculate similarities to positive and negative examples
-            pos_similarities = cosine_similarity(text_vec, self.rule_vectors[rule]['positive']).flatten()
-            neg_similarities = cosine_similarity(text_vec, self.rule_vectors[rule]['negative']).flatten()
-            
-            # Average similarities
-            avg_pos_sim = np.mean(pos_similarities)
-            avg_neg_sim = np.mean(neg_similarities)
-            
-            # Simple probability based on relative similarity
-            if avg_pos_sim + avg_neg_sim == 0:
-                prob = 0.5
-            else:
-                prob = avg_pos_sim / (avg_pos_sim + avg_neg_sim)
-            
-            probabilities.append(prob)
+        # Encode rules (handle unseen rules)
+        try:
+            test_df['rule_encoded'] = self.rule_encoder.transform(test_df['rule'])
+        except ValueError:
+            # Handle unseen rules by using most common rule
+            most_common_rule = self.rule_encoder.classes_[0]
+            test_df['rule'] = most_common_rule
+            test_df['rule_encoded'] = self.rule_encoder.transform(test_df['rule'])
         
-        return np.array(probabilities)
+        # Predict
+        probabilities = self.pipeline.predict_proba(test_df[['body', 'rule_encoded']])
+        return probabilities[:, 1]  # Return probability of positive class
 
 # =============================================================================
 # 3. MODEL TRAINING AND VALIDATION
@@ -114,7 +101,7 @@ train_data, eval_data = train_test_split(
 )
 
 # Train the model
-model = RuleBasedSimilarityClassifier(max_features=5000)
+model = TextOnlyBaselineClassifier(max_features=10000)
 model.fit(train_data)
 
 # Evaluate on validation set
@@ -134,7 +121,7 @@ print(f"Validation AUC: {auc:.4f}")
 print("\nGenerating final predictions...")
 
 # Retrain on full training data
-final_model = RuleBasedSimilarityClassifier(max_features=5000)
+final_model = TextOnlyBaselineClassifier(max_features=10000)
 final_model.fit(train_df)
 
 # Generate predictions on test set

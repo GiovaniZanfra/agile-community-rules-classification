@@ -1,6 +1,3 @@
-# Reddit Comment Rule Violation Classifier - Text-Only Baseline (Minimal Version)
-# Copy-paste this entire script into a single Kaggle notebook cell
-
 import pandas as pd
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -8,16 +5,16 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import LabelEncoder
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.metrics import roc_auc_score
+import pickle
+from pathlib import Path
 
-# Load data
-train_df = pd.read_csv('/kaggle/input/jigsaw-agile-community-rules/train.csv')
-test_df = pd.read_csv('/kaggle/input/jigsaw-agile-community-rules/test.csv')
-
-# Text-only baseline model class
 class TextOnlyBaselineClassifier:
+    """Text-only baseline classifier using TF-IDF + Logistic Regression."""
+    
     def __init__(self, max_features=10000):
+        self.max_features = max_features
         self.text_vectorizer = TfidfVectorizer(
             max_features=max_features, 
             stop_words='english',
@@ -30,9 +27,11 @@ class TextOnlyBaselineClassifier:
         self.pipeline = None
         
     def fit(self, train_df):
+        """Fit the classifier on training data."""
         # Prepare features
-        train_df_copy = train_df.copy()
-        train_df_copy['rule_encoded'] = self.rule_encoder.fit_transform(train_df_copy['rule'])
+        X_text = train_df['body'].fillna('')
+        X_rule = train_df['rule']
+        y = train_df['rule_violation']
         
         # Create pipeline
         self.pipeline = Pipeline([
@@ -43,13 +42,22 @@ class TextOnlyBaselineClassifier:
             ('classifier', self.model)
         ])
         
+        # Encode rules
+        train_df_copy = train_df.copy()
+        train_df_copy['rule_encoded'] = self.rule_encoder.fit_transform(train_df_copy['rule'])
+        
         # Fit pipeline
-        self.pipeline.fit(train_df_copy[['body', 'rule_encoded']], train_df_copy['rule_violation'])
+        self.pipeline.fit(train_df_copy[['body', 'rule_encoded']], y)
+        
         return self
     
     def predict_proba(self, texts, rules):
+        """Predict violation probabilities."""
         # Prepare test data
-        test_df = pd.DataFrame({'body': texts, 'rule': rules})
+        test_df = pd.DataFrame({
+            'body': texts,
+            'rule': rules
+        })
         
         # Encode rules (handle unseen rules)
         try:
@@ -63,24 +71,14 @@ class TextOnlyBaselineClassifier:
         # Predict
         probabilities = self.pipeline.predict_proba(test_df[['body', 'rule_encoded']])
         return probabilities[:, 1]  # Return probability of positive class
-
-# Train and validate
-train_data, eval_data = train_test_split(train_df, test_size=0.2, random_state=42, stratify=train_df['rule_violation'])
-model = TextOnlyBaselineClassifier(max_features=10000)
-model.fit(train_data)
-eval_probs = model.predict_proba(eval_data['body'].tolist(), eval_data['rule'].tolist())
-auc = roc_auc_score(eval_data['rule_violation'], eval_probs)
-print(f"Validation AUC: {auc:.4f}")
-
-# Generate final predictions
-final_model = TextOnlyBaselineClassifier(max_features=10000)
-final_model.fit(train_df)
-test_predictions = final_model.predict_proba(test_df['body'].tolist(), test_df['rule'].tolist())
-
-# Create submission
-submission = pd.DataFrame({'row_id': test_df['row_id'], 'rule_violation': test_predictions})
-submission.to_csv('submission.csv', index=False)
-
-print(f"Test predictions: {len(test_predictions)}")
-print(f"Prediction range: {test_predictions.min():.4f} - {test_predictions.max():.4f}")
-print("Submission saved as 'submission.csv'")
+    
+    def save(self, path: str):
+        """Save the trained model."""
+        with open(path, 'wb') as f:
+            pickle.dump(self, f)
+    
+    @classmethod
+    def load(cls, path: str):
+        """Load a trained model."""
+        with open(path, 'rb') as f:
+            return pickle.load(f)
