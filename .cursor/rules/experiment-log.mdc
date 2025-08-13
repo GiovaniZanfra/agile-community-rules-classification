@@ -1,0 +1,5 @@
+---
+  description: Record experiment provenance: data + commit hash + metrics.
+  globs:
+  alwaysApply: false
+---

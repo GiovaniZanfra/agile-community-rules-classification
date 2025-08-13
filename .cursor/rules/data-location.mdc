@@ -1,0 +1,8 @@
+---
+  description: Data lives outside the repo. Provide download instructions, manifest, and checksums in DATA_README.md; raw files go to data/raw/ (gitignored). Include scripts/download_data.sh or pointers to S3/GCS/HTTP.
+  globs:
+    - "DATA_README.md"
+    - "scripts/download_data.sh"
+    - "data/raw/**"
+  alwaysApply: true
+---

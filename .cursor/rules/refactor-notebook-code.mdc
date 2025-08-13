@@ -1,0 +1,6 @@
+---
+  description: Move repeated notebook code into the package.
+  globs:
+    - "notebooks/**"
+  alwaysApply: false
+---

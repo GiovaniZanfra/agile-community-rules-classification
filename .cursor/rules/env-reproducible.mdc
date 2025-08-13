@@ -1,0 +1,8 @@
+---
+ description: Provide reproducible env files: environment.yml, requirements.txt, or Dockerfile.
+  globs:
+    - "environment.yml"
+    - "requirements.txt"
+    - "Dockerfile"
+  alwaysApply: false
+---

@@ -1,0 +1,6 @@
+---
+  description: Use Make/Snakemake/Prefect/Dagster for DAGs; include Makefile targets.
+  globs:
+    - "Makefile"
+  alwaysApply: false
+---

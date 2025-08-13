@@ -1,0 +1,5 @@
+---
+description: Treat raw data as immutable; never edit data/raw/** in-place.
+globs: "data/raw"
+alwaysApply: false
+---

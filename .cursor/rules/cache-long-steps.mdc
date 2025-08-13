@@ -1,0 +1,6 @@
+---
+  description: Cache/serialize long processes in data/interim/ and document recreation.
+  globs:
+    - "data/interim/**"
+  alwaysApply: false
+---

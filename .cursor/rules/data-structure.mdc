@@ -1,0 +1,5 @@
+---
+  description: Keep folder structure: data/raw/, data/external/, data/interim/, data/processed/.
+  globs:
+  alwaysApply: false
+---

@@ -1,0 +1,6 @@
+---
+  description: Use notebooks only for exploration; move reusable code to the package.
+  globs:
+    - "notebooks/**"
+  alwaysApply: false
+---

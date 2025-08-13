@@ -1,0 +1,6 @@
+---
+  description: Don’t commit large datasets; .gitignore should ignore data/ by default.
+  globs:
+    - "data/**"
+  alwaysApply: false
+---

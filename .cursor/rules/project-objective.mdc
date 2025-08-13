@@ -1,0 +1,7 @@
+---
+  description: Concise project goal: build a binary classifier that outputs a probability a Reddit comment violated a subreddit rule; prioritize correctness, reproducibility, privacy, and human-in-the-loop moderation.
+  globs:
+    - "README.md"
+    - "docs/**"
+  alwaysApply: true
+---
